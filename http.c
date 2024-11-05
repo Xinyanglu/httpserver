@@ -1,15 +1,5 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
+#include "http.h"
 
-#include <arpa/inet.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-
-#define LISTEN_ADDRESS "0.0.0.0"
-
-//Return -1 on error
 int create_server(int port){
     int server_socket = socket(AF_INET, SOCK_STREAM, 0);
     if(server_socket < 0){
@@ -59,10 +49,42 @@ int client_accept(int server_socket){
     return client_socket;
 }
 
-int client_connect(int server_socket, int client_socket){
+void parse_http(char* buffer, HttpRequest* request){
+    char* token = buffer;
+    // method token
+    while(*token != ' '){
+        token++;
+    }
+    strncpy(request->method, buffer, token - buffer);
 
+    char* token2 = token+1;
+    // url token
+    while(*token2 != ' '){
+        token2++;
+    }
+    strncpy(request->url, token+1, token2 - token - 1);
+    
+}
 
-    return 0;
+void handle_client_connect(int server_socket, int client_socket){
+    char buffer[512];
+    memset(buffer, 0, 512);
+    HttpRequest* request = malloc(sizeof(HttpRequest));
+    memset(request, 0, sizeof(HttpRequest));
+
+    int read_size = read(client_socket, buffer, 512);
+    if(read_size < 0){
+        fprintf(stderr, "read() error\n");
+        close(client_socket);
+        free(request);
+        return;
+    }
+
+    parse_http(buffer, request);
+    printf("Data: %s\n", buffer);
+    printf("Method: %s\n", request->method);
+    printf("URL: %s\n", request->url);
+
 }
 
 int main(int argc, char* argv[]){
@@ -94,7 +116,7 @@ int main(int argc, char* argv[]){
         }
 
         if(!fork()){
-            client_connect(server_socket, client_socket);
+            handle_client_connect(server_socket, client_socket);
         }
     }
 
