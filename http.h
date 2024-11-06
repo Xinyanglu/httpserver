@@ -19,3 +19,5 @@ int create_server(int);
 int client_accept(int);
 void handle_client_connect(int, int);
 void parse_http(char*, HttpRequest*);
+void http_headers(int, int);
+void http_response(int, char*, char*);

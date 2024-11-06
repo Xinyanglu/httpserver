@@ -66,6 +66,43 @@ void parse_http(char* buffer, HttpRequest* request){
     
 }
 
+void http_headers(int client_socket, int code){
+    char response[512];
+    memset(response, 0 ,512);
+    char* status;
+    if(code == 200){
+        status = "OK";
+    }else if(code == 404){
+        status = "Not Found";
+    }else{
+        status = "Internal Server Error";
+        code = 500;
+    }
+    snprintf(response, 511, 
+        "HTTP/1.0 %d %s\r\n"
+        "Server: http.c\r\n"
+        "Cache-Control: no-store, no-cache, max-age=0, private\r\n"
+        "Content-Language: en\r\n"
+        "Expires: -1\r\n"
+        "X-Frame-Options: SAMEORIGIN\r\n",
+        code, status
+        );
+    write(client_socket, response, strlen(response));
+}
+
+void http_response(int client_socket, char* content_type, char* content){
+    char response[512];
+    memset(response, 0, 512);
+    snprintf(response, 511,
+        "Content-Type: %s\r\n"
+        "Content-Length: %ld\r\n\r\n"
+        "%s\r\n",
+        content_type, strlen(content), content
+        );
+
+    write(client_socket, response, strlen(response));
+}
+
 void handle_client_connect(int server_socket, int client_socket){
     char buffer[512];
     memset(buffer, 0, 512);
@@ -81,10 +118,24 @@ void handle_client_connect(int server_socket, int client_socket){
     }
 
     parse_http(buffer, request);
-    printf("Data: %s\n", buffer);
-    printf("Method: %s\n", request->method);
-    printf("URL: %s\n", request->url);
 
+    char* response;
+    if(!strcmp(request->method, "GET") && (!strcmp(request->url, "/hello"))){
+        response = "<html><h1>Hello, World!</h1></html>";
+        http_headers(client_socket, 200);
+        http_response(client_socket, "text/html", response);
+    }else if (!strcmp(request->method, "GET") && (!strcmp(request->url, "/"))){
+        response = "<html><body><h1>Routes: /hello </h1></body></html>";
+        http_headers(client_socket, 200);
+        http_response(client_socket, "text/html", response);
+    }else{
+        response = "File not found";
+        http_headers(client_socket, 404);
+        http_response(client_socket, "text/plain", response);
+    }
+
+    close(client_socket);
+    free(request);
 }
 
 int main(int argc, char* argv[]){
